@@ -1,0 +1,497 @@
+/** @jsxImportSource https://esm.sh/react@18.2.0 */
+import React, { useState, useEffect } from "https://esm.sh/react@18.2.0";
+import { createRoot } from "https://esm.sh/react-dom@18.2.0/client";
+
+function App() {
+  const [view, setView] = useState("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [room, setRoom] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [rooms, setRooms] = useState([]);
+
+  useEffect(() => {
+    if (view === "rooms") {
+      fetchRooms();
+    }
+  }, [view]);
+
+  const fetchRooms = async () => {
+    try {
+      const response = await fetch("/rooms");
+      const data = await response.json();
+      setRooms(data);
+    } catch (error) {
+      console.error("Failed to fetch rooms", error);
+    }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      
+      if (response.ok) {
+        setView("rooms");
+      } else {
+        alert("Login failed");
+      }
+    } catch (error) {
+      console.error("Login error", error);
+    }
+  };
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch("/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      
+      if (response.ok) {
+        setView("rooms");
+      } else {
+        alert("Signup failed");
+      }
+    } catch (error) {
+      console.error("Signup error", error);
+    }
+  };
+
+  const fetchMessages = async (selectedRoom) => {
+    try {
+      const response = await fetch(`/messages?room=${selectedRoom}`);
+      const data = await response.json();
+      setMessages(data);
+    } catch (error) {
+      console.error("Failed to fetch messages", error);
+    }
+  };
+
+  const handleRoomSelect = (selectedRoom) => {
+    setRoom(selectedRoom);
+    setView("chat");
+    fetchMessages(selectedRoom);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+
+    try {
+      await fetch("/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          content: newMessage, 
+          room: room,
+          username: username 
+        })
+      });
+
+      setNewMessage("");
+      fetchMessages(room);
+    } catch (error) {
+      console.error("Message send failed", error);
+    }
+  };
+
+  const renderContent = () => {
+    switch (view) {
+      case "login":
+        return (
+          <div style={styles.loginContainer}>
+            <h2>🌈 Val Town Chat Login</h2>
+            <form onSubmit={handleLogin} style={styles.form}>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Username"
+                style={styles.input}
+                required
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                style={styles.input}
+                required
+              />
+              <div style={styles.buttonGroup}>
+                <button type="submit" style={styles.button}>Login</button>
+                <button 
+                  type="button" 
+                  style={styles.button} 
+                  onClick={() => setView("signup")}
+                >
+                  Signup
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      
+      case "signup":
+        return (
+          <div style={styles.loginContainer}>
+            <h2>🌈 Val Town Chat Signup</h2>
+            <form onSubmit={handleSignup} style={styles.form}>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Username"
+                style={styles.input}
+                required
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                style={styles.input}
+                required
+              />
+              <div style={styles.buttonGroup}>
+                <button type="submit" style={styles.button}>Create Account</button>
+                <button 
+                  type="button" 
+                  style={styles.button} 
+                  onClick={() => setView("login")}
+                >
+                  Back to Login
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      
+      case "rooms":
+        return (
+          <div style={styles.roomContainer}>
+            <h2>🏠 Choose a Chat Room</h2>
+            {rooms.map((roomName) => (
+              <button 
+                key={roomName} 
+                style={styles.roomButton}
+                onClick={() => handleRoomSelect(roomName)}
+              >
+                {roomName}
+              </button>
+            ))}
+            <button 
+              style={styles.createRoomButton}
+              onClick={() => {
+                const newRoom = prompt("Enter new room name:");
+                if (newRoom) {
+                  fetch("/rooms", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ roomName: newRoom })
+                  }).then(() => fetchRooms());
+                }
+              }}
+            >
+              + Create New Room
+            </button>
+          </div>
+        );
+      
+      case "chat":
+        return (
+          <div style={styles.container}>
+            <h1>💬 {room} Chat</h1>
+            <div style={styles.messageList}>
+              {messages.map((msg, index) => (
+                <div key={index} style={styles.message}>
+                  <strong>{msg.username}</strong>: {msg.content}
+                </div>
+              ))}
+            </div>
+            <form onSubmit={handleSubmit} style={styles.form}>
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                style={styles.input}
+              />
+              <button type="submit" style={styles.button}>Send</button>
+            </form>
+            <div style={styles.navButtons}>
+              <button 
+                style={styles.backButton} 
+                onClick={() => setView("rooms")}
+              >
+                ← Back to Rooms
+              </button>
+            </div>
+          </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div>
+      {renderContent()}
+      <a 
+        href={import.meta.url.replace("esm.town", "val.town")} 
+        target="_top" 
+        style={styles.sourceLink}
+      >
+        View Source
+      </a>
+    </div>
+  );
+}
+
+function client() {
+  createRoot(document.getElementById("root")).render(<App />);
+}
+if (typeof document !== "undefined") { client(); }
+
+export default async function server(request: Request): Promise<Response> {
+  const { sqlite } = await import("https://esm.town/v/stevekrouse/sqlite");
+  const KEY = new URL(import.meta.url).pathname.split("/").at(-1);
+  const SCHEMA_VERSION = 2;
+
+  // Create users table
+  await sqlite.execute(`
+    CREATE TABLE IF NOT EXISTS ${KEY}_users_${SCHEMA_VERSION} (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL
+    )
+  `);
+
+  // Create rooms table
+  await sqlite.execute(`
+    CREATE TABLE IF NOT EXISTS ${KEY}_rooms_${SCHEMA_VERSION} (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL
+    )
+  `);
+
+  // Create messages table with room and username
+  await sqlite.execute(`
+    CREATE TABLE IF NOT EXISTS ${KEY}_messages_${SCHEMA_VERSION} (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content TEXT NOT NULL,
+      username TEXT NOT NULL,
+      room TEXT NOT NULL,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Initial default rooms
+  await sqlite.execute(`
+    INSERT OR IGNORE INTO ${KEY}_rooms_${SCHEMA_VERSION} (name) 
+    VALUES ('General'), ('Random'), ('Tech Talk')
+  `);
+
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+
+  // Login endpoint
+  if (pathname === "/login" && request.method === "POST") {
+    const { username, password } = await request.json();
+    const result = await sqlite.execute(`
+      SELECT * FROM ${KEY}_users_${SCHEMA_VERSION} 
+      WHERE username = ? AND password = ?
+    `, [username, password]);
+
+    return result.rows.length > 0 
+      ? Response.json({ success: true }) 
+      : new Response("Invalid credentials", { status: 401 });
+  }
+
+  // Signup endpoint
+  if (pathname === "/signup" && request.method === "POST") {
+    const { username, password } = await request.json();
+    try {
+      await sqlite.execute(`
+        INSERT INTO ${KEY}_users_${SCHEMA_VERSION} (username, password) 
+        VALUES (?, ?)
+      `, [username, password]);
+      return Response.json({ success: true });
+    } catch (error) {
+      return new Response("Username already exists", { status: 400 });
+    }
+  }
+
+  // Rooms endpoint
+  if (pathname === "/rooms") {
+    if (request.method === "GET") {
+      const result = await sqlite.execute(`
+        SELECT name FROM ${KEY}_rooms_${SCHEMA_VERSION}
+      `);
+      return Response.json(result.rows.map(row => row.name));
+    }
+    
+    if (request.method === "POST") {
+      const { roomName } = await request.json();
+      await sqlite.execute(`
+        INSERT OR IGNORE INTO ${KEY}_rooms_${SCHEMA_VERSION} (name) 
+        VALUES (?)
+      `, [roomName]);
+      return new Response("Room created", { status: 200 });
+    }
+  }
+
+  // Messages endpoint
+  if (pathname === "/messages") {
+    const searchParams = new URL(request.url).searchParams;
+    const room = searchParams.get("room");
+
+    if (request.method === "GET") {
+      const result = await sqlite.execute(`
+        SELECT * FROM ${KEY}_messages_${SCHEMA_VERSION} 
+        WHERE room = ?
+        ORDER BY timestamp DESC 
+        LIMIT 50
+      `, [room]);
+      return Response.json(result.rows);
+    }
+
+    if (request.method === "POST") {
+      const { content, room, username } = await request.json();
+      await sqlite.execute(`
+        INSERT INTO ${KEY}_messages_${SCHEMA_VERSION} 
+        (content, room, username) VALUES (?, ?, ?)
+      `, [content, room, username]);
+      return new Response("Message sent", { status: 200 });
+    }
+  }
+
+  return new Response(`
+    <html>
+      <head>
+        <title>Val Town Chat</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="https://esm.town/v/std/catch"></script>
+      </head>
+      <body>
+        <div id="root"></div>
+        <script type="module" src="${import.meta.url}"></script>
+      </body>
+    </html>
+  `, {
+    headers: { "Content-Type": "text/html" }
+  });
+}
+
+const styles = {
+  loginContainer: {
+    maxWidth: "400px",
+    margin: "50px auto",
+    padding: "20px",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    textAlign: "center",
+    fontFamily: "Arial, sans-serif"
+  },
+  roomContainer: {
+    maxWidth: "600px",
+    margin: "50px auto",
+    padding: "20px",
+    textAlign: "center",
+    fontFamily: "Arial, sans-serif"
+  },
+  container: {
+    maxWidth: "600px",
+    margin: "0 auto",
+    padding: "20px",
+    fontFamily: "Arial, sans-serif"
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    marginTop: "20px"
+  },
+  input: {
+    padding: "10px",
+    borderRadius: "4px",
+    border: "1px solid #ccc"
+  },
+  buttonGroup: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "10px"
+  },
+  button: {
+    flex: 1,
+    padding: "10px 15px",
+    backgroundColor: "#4CAF50",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer"
+  },
+  roomButton: {
+    display: "block",
+    width: "100%",
+    padding: "15px",
+    margin: "10px 0",
+    backgroundColor: "#3498db",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer"
+  },
+  createRoomButton: {
+    width: "100%",
+    padding: "15px",
+    backgroundColor: "#2ecc71",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    marginTop: "20px"
+  },
+  messageList: {
+    height: "400px",
+    overflowY: "scroll",
+    border: "1px solid #ddd",
+    marginBottom: "10px",
+    padding: "10px"
+  },
+  message: {
+    marginBottom: "10px",
+    padding: "8px",
+    backgroundColor: "#f0f0f0",
+    borderRadius: "4px"
+  },
+  navButtons: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginTop: "10px"
+  },
+  backButton: {
+    padding: "10px 15px",
+    backgroundColor: "#95a5a6",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer"
+  },
+  sourceLink: {
+    display: "block",
+    textAlign: "center",
+    marginTop: "10px",
+    color: "#666",
+    textDecoration: "none"
+  }
+};
